@@ -39,7 +39,7 @@ GitHub Actions проверяет код и тесты, собирает обр�
 | Фронтенд | React 17, React Router 5, react-scripts 5, Node.js 18, npm |
 | Веб-серверы | Gunicorn 20.1.0, Nginx 1.22.1 |
 | Контейнеризация | Docker, Docker Compose |
-| Проверки | Ruff, Django TestCase, pytest, React Testing Library, Jest |
+| Проверки | Ruff, Ruff Format, pycodestyle, pre-commit, Django TestCase, pytest, React Testing Library, Jest |
 | Автоматизация | GitHub Actions, Docker Hub, Telegram Bot API |
 
 Зависимости Python перечислены в `backend/requirements.txt`, фронтенда —
@@ -158,8 +158,41 @@ python scripts/smoke_test.py
 регистрацию, вход, создание кота и загрузку картинки через gateway.
 Тестовая учётная запись и карточка удаляются после проверки.
 
-Ruff проверяет backend с правилами E, F и I. Для отдельной проверки запустите
-`ruff check backend` с установленным `ruff==0.9.10`.
+Ruff проверяет Python-код с правилами E, F и I, Ruff Format — форматирование,
+pycodestyle — соответствие PEP 8. Версии инструментов зафиксированы
+в `requirements-dev.txt`.
+
+### Автоматические проверки перед коммитом
+
+Для инструментов разработки создайте отдельное окружение Python 3.9+:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements-dev.txt
+pre-commit install
+pre-commit run --all-files
+```
+
+В Linux/macOS активируйте окружение командой `source .venv/bin/activate`.
+Это окружение содержит инструменты разработки; само приложение по-прежнему
+работает внутри Docker. После клонирования репозитория команду
+`pre-commit install` нужно выполнить на каждом компьютере отдельно.
+
+Перед каждым коммитом hooks автоматически исправляют доступные Ruff ошибки,
+форматируют изменённые Python-файлы и запускают pycodestyle.
+Если hook изменил файл, проверьте изменения, выполните `git add` и повторите
+коммит. Если проверка стиля не прошла, сначала исправьте её замечания.
+Сгенерированные миграции исключены из форматирования и проверок стиля.
+CI использует те же версии инструментов, но только проверяет файлы.
+
+Проверки можно выполнить по отдельности:
+
+```powershell
+ruff check backend scripts
+ruff format --check backend scripts
+pycodestyle backend scripts
+```
 
 В корневом каталоге `tests/` находятся проверки инфраструктуры и внешнего
 развёртывания, а тесты самого API — в `backend/cats/tests.py`.
@@ -174,20 +207,25 @@ Ruff проверяет backend с правилами E, F и I. Для отде
 Workflow: `.github/workflows/main.yml`. Его точная копия для учебной проверки:
 `kittygram_workflow.yml`. При изменении workflow обновляйте оба файла.
 
-При push в любую ветку запускаются Ruff и тесты бэкенда и фронтенда.
+При push в любую ветку запускаются Ruff, Ruff Format, pycodestyle
+и тесты бэкенда и фронтенда.
 На pull request в `main`/`master` и при ручном запуске выполняются проверки
 без публикации образов. Публикация разрешена только при push в `main` или
 `master` после успешных проверок:
 
-1. Ruff проверяет backend; Django проверяет настройки и миграции, запускает
-   имеющиеся тесты API с PostgreSQL 13.
+1. В параллельной матрице Python 3.9 и 3.10 проверяются стиль и форматирование,
+   настройки Django и миграции; запускаются имеющиеся тесты API с PostgreSQL 13.
+   Эти версии выбраны для существующих учебных зависимостей Django 3.2,
+   Pillow 9 и psycopg2-binary 2.9.3. Добавление Python 3.11/3.12 требует
+   отдельного обновления зависимостей и проверки совместимости.
 2. В отдельной задаче устанавливаются зависимости и запускаются тесты React.
 3. Только после успеха обеих задач собираются и публикуются три образа:
    `<DOCKER_USERNAME>/kittygram_backend`, `<DOCKER_USERNAME>/kittygram_frontend`,
    `<DOCKER_USERNAME>/kittygram_gateway`. Логин берётся из секрета
    `DOCKER_USERNAME`. Каждый образ получает теги `latest` и SHA коммита.
 4. После успешной публикации всех образов отправляется сообщение в Telegram.
-   Сообщение подтверждает тестирование и публикацию образов.
+   Сообщение подтверждает тестирование и публикацию образов, содержит автора
+   пуша, сообщение последнего коммита и ссылки на коммит и запуск workflow.
 
 В репозитории GitHub откройте **Settings → Secrets and variables → Actions**
 и создайте **Repository secrets**:

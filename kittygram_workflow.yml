@@ -16,8 +16,12 @@ concurrency:
 
 jobs:
   backend_tests:
-    name: Ruff and backend tests
+    name: Backend checks (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.9', '3.10']
     services:
       postgres:
         image: postgres:13
@@ -45,15 +49,24 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: ${{ matrix.python-version }}
           cache: pip
-          cache-dependency-path: backend/requirements.txt
+          cache-dependency-path: |
+            backend/requirements.txt
+            requirements-dev.txt
       - name: Install dependencies
         run: |
           python -m pip install -r backend/requirements.txt
-          python -m pip install ruff==0.9.10
+          python -m pip install -r requirements-dev.txt
       - name: Check Python code
-        run: ruff check backend
+        run: ruff check backend scripts
+
+      - name: Check Python formatting
+        run: ruff format --check backend scripts
+
+      - name: Check Python style
+        run: pycodestyle backend scripts
+
       - name: Check workflow copy
         run: cmp .github/workflows/main.yml kittygram_workflow.yml
       - name: Check Django and migrations
@@ -96,8 +109,10 @@ jobs:
         include:
           - component: backend
             context: backend
+
           - component: frontend
             context: frontend
+
           - component: gateway
             context: nginx
     steps:
@@ -128,6 +143,9 @@ jobs:
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_TO: ${{ secrets.TELEGRAM_TO }}
+          PUSH_ACTOR: ${{ github.actor }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          COMMIT_URL: https://github.com/${{ github.repository }}/commit/${{ github.sha }}
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           python - <<'PY'
@@ -139,10 +157,16 @@ jobs:
           chat_id = os.environ['TELEGRAM_TO']
           if not token or not chat_id:
               raise SystemExit('Set TELEGRAM_TOKEN and TELEGRAM_TO repository secrets')
+          message = (
+              'Kittygram: tests passed; all three images published to Docker Hub.\n'
+              f'Push author: {os.environ["PUSH_ACTOR"]}\n'
+              f'Commit message: {os.environ["COMMIT_MESSAGE"][:2000]}\n'
+              f'Commit: {os.environ["COMMIT_URL"]}\n'
+              f'Workflow: {os.environ["RUN_URL"]}'
+          )
           payload = json.dumps({
               'chat_id': chat_id,
-              'text': 'Kittygram: tests passed; all three images published to Docker Hub. '
-                      + os.environ['RUN_URL'],
+              'text': message,
           }).encode()
           request = urllib.request.Request(
               f'https://api.telegram.org/bot{token}/sendMessage',

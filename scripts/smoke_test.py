@@ -20,15 +20,22 @@ def request(path, data=None, token=None, method=None):
         headers['Content-Type'] = 'application/json'
         data = json.dumps(data).encode()
     req = urllib.request.Request(
-        BASE_URL + path, data=data, headers=headers, method=method,
+        BASE_URL + path,
+        data=data,
+        headers=headers,
+        method=method,
     )
     with urllib.request.urlopen(req, timeout=15) as response:
         return response.status, response.read(), response.headers
 
 
 def png_chunk(kind, data):
-    return (struct.pack('!I', len(data)) + kind + data
-            + struct.pack('!I', zlib.crc32(kind + data)))
+    return (
+        struct.pack('!I', len(data))
+        + kind
+        + data
+        + struct.pack('!I', zlib.crc32(kind + data))
+    )
 
 
 def main():
@@ -46,19 +53,25 @@ def main():
     print('Frontend, SPA routes, JavaScript and admin static: OK')
 
     password = secrets.token_urlsafe(24)
-    credentials = {'username': 'smoke_' + secrets.token_hex(6),
-                   'password': password}
+    credentials = {
+        'username': 'smoke_' + secrets.token_hex(6),
+        'password': password,
+    }
     assert request('/api/users/', credentials)[0] == 201
     login = json.loads(request('/api/token/login/', credentials)[1])
     token = login['auth_token']
     cat_id = None
     try:
-        png = (b'\x89PNG\r\n\x1a\n'
-               + png_chunk(b'IHDR', struct.pack('!2I5B', 1, 1, 8, 2, 0, 0, 0))
-               + png_chunk(b'IDAT', zlib.compress(b'\0\xff\0\0'))
-               + png_chunk(b'IEND', b''))
+        png = (
+            b'\x89PNG\r\n\x1a\n'
+            + png_chunk(b'IHDR', struct.pack('!2I5B', 1, 1, 8, 2, 0, 0, 0))
+            + png_chunk(b'IDAT', zlib.compress(b'\0\xff\0\0'))
+            + png_chunk(b'IEND', b'')
+        )
         data = {
-            'name': 'Smoke test', 'color': '#FFA500', 'birth_year': 2024,
+            'name': 'Smoke test',
+            'color': '#FFA500',
+            'birth_year': 2024,
             'image': 'data:image/png;base64,' + base64.b64encode(png).decode(),
         }
         status, body, _ = request('/api/cats/', data, token)
@@ -75,10 +88,21 @@ def main():
         print('Registration, login, PostgreSQL write/read and media: OK')
     finally:
         if cat_id is not None:
-            assert request(f'/api/cats/{cat_id}/', token=token,
-                           method='DELETE')[0] == 204
-        assert request('/api/users/me/', {'current_password': password},
-                       token, 'DELETE')[0] == 204
+            assert (
+                request(f'/api/cats/{cat_id}/', token=token, method='DELETE')[
+                    0
+                ]
+                == 204
+            )
+        assert (
+            request(
+                '/api/users/me/',
+                {'current_password': password},
+                token,
+                'DELETE',
+            )[0]
+            == 204
+        )
     print('Test user and cat removed. Smoke test passed.')
 
 

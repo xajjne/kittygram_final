@@ -1,0 +1,20 @@
+files: ^(backend|scripts)/.*\.py$
+exclude: ^backend/.*/migrations/
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.10
+    hooks:
+      - id: ruff
+        args: [--fix]
+
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: pycodestyle
+        name: pycodestyle
+        entry: pycodestyle
+        language: python
+        additional_dependencies: [pycodestyle==2.12.1]
+        types: [python]
