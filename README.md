@@ -174,15 +174,18 @@ Ruff проверяет backend с правилами E, F и I. Для отде
 Workflow: `.github/workflows/main.yml`. Его точная копия для учебной проверки:
 `kittygram_workflow.yml`. При изменении workflow обновляйте оба файла.
 
-На pull request в `main` выполняются проверки без публикации образов.
-При push в `main` или ручном запуске workflow из `main`:
+При push в любую ветку запускаются Ruff и тесты бэкенда и фронтенда.
+На pull request в `main`/`master` и при ручном запуске выполняются проверки
+без публикации образов. Публикация разрешена только при push в `main` или
+`master` после успешных проверок:
 
 1. Ruff проверяет backend; Django проверяет настройки и миграции, запускает
    имеющиеся тесты API с PostgreSQL 13.
 2. В отдельной задаче устанавливаются зависимости и запускаются тесты React.
 3. Только после успеха обеих задач собираются и публикуются три образа:
-   `xajjne/kittygram_backend`, `xajjne/kittygram_frontend`,
-   `xajjne/kittygram_gateway`. Каждый получает теги `latest` и SHA коммита.
+   `<DOCKER_USERNAME>/kittygram_backend`, `<DOCKER_USERNAME>/kittygram_frontend`,
+   `<DOCKER_USERNAME>/kittygram_gateway`. Логин берётся из секрета
+   `DOCKER_USERNAME`. Каждый образ получает теги `latest` и SHA коммита.
 4. После успешной публикации всех образов отправляется сообщение в Telegram.
    Сообщение подтверждает тестирование и публикацию образов.
 
